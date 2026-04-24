@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeetNow — Réunions vidéo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== HOME PAGE ===== -->
+  <div id="page-home" class="page active">
+    <div class="bg-orb orb1"></div>
+    <div class="bg-orb orb2"></div>
+
+    <header class="home-header">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="10" fill="#2563eb"/>
+            <path d="M8 11a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-8z" fill="white" fill-opacity="0.9"/>
+            <path d="M20 14l5-3v8l-5-3v-2z" fill="white"/>
+          </svg>
+        </div>
+        <span class="logo-name">MeetNow</span>
+      </div>
+    </header>
+
+    <main class="home-main">
+      <div class="home-content">
+        <div class="badge">Visioconférence WebRTC</div>
+        <h1 class="home-title">Réunions vidéo<br><em>sans friction</em></h1>
+        <p class="home-sub">Créez une réunion en un clic, partagez le lien.<br>Aucune installation, aucun compte requis.</p>
+
+        <div class="action-stack">
+          <button class="btn-primary" onclick="openSetup('create')">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Nouvelle réunion
+          </button>
+
+          <div class="divider"><span>ou</span></div>
+
+          <div class="join-box">
+            <input id="join-input" type="text" placeholder="Entrez un code ou collez un lien…" class="join-input" />
+            <button class="btn-join" onclick="handleJoin()">Rejoindre</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-visual">
+        <div class="preview-grid">
+          <div class="preview-tile active">
+            <div class="p-avatar blue">SL</div>
+            <div class="p-name">Sophie L.</div>
+            <div class="p-speaking"></div>
+          </div>
+          <div class="preview-tile">
+            <div class="p-avatar green">MR</div>
+            <div class="p-name">Marc R.</div>
+          </div>
+          <div class="preview-tile">
+            <div class="p-avatar purple">AN</div>
+            <div class="p-name">Amira N.</div>
+          </div>
+          <div class="preview-tile you">
+            <div class="p-avatar dark">Vous</div>
+            <div class="p-name">Vous</div>
+            <span class="you-tag">Vous</span>
+          </div>
+        </div>
+        <div class="preview-bar">
+          <div class="pb-dot mic"></div>
+          <div class="pb-dot cam"></div>
+          <div class="pb-dot share"></div>
+          <div class="pb-dot red"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== SETUP MODAL ===== -->
+  <div id="page-setup" class="page">
+    <div class="modal-overlay" onclick="closePage('page-setup')"></div>
+    <div class="setup-modal">
+      <div class="setup-header">
+        <h2 id="setup-title">Créer une réunion</h2>
+        <button class="close-btn" onclick="closePage('page-setup')">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="setup-preview">
+        <div class="cam-preview-box" id="cam-preview-box">
+          <video id="local-preview" autoplay muted playsinline></video>
+          <div class="cam-off-state" id="cam-off-state">
+            <div class="big-avatar" id="setup-avatar">V</div>
+          </div>
+        </div>
+        <div class="preview-controls">
+          <button class="ctrl" id="preview-mic-btn" onclick="togglePreviewMic()" title="Micro">
+            <svg id="mic-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+          </button>
+          <button class="ctrl" id="preview-cam-btn" onclick="togglePreviewCam()" title="Caméra">
+            <svg id="cam-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="setup-form">
+        <div class="field">
+          <label>Votre nom</label>
+          <input id="user-name" type="text" placeholder="Ex: Sophie Martin" />
+        </div>
+        <div class="field" id="meeting-name-field">
+          <label>Nom de la réunion</label>
+          <input id="meeting-name" type="text" placeholder="Ex: Réunion d'équipe" />
+        </div>
+      </div>
+
+      <button class="btn-primary full" id="setup-confirm-btn" onclick="confirmSetup()">
+        Rejoindre la réunion
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== ROOM PAGE ===== -->
+  <div id="page-room" class="page">
+    <div class="room-wrap">
+
+      <header class="room-header">
+        <div class="room-info">
+          <div class="room-logo">
+            <svg viewBox="0 0 20 20" fill="none">
+              <rect width="20" height="20" rx="6" fill="#2563eb"/>
+              <path d="M5 7a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7z" fill="white" fill-opacity="0.9"/>
+              <path d="M12 9l3-2v5l-3-2V9z" fill="white"/>
+            </svg>
+          </div>
+          <div>
+            <div class="room-title-text" id="room-title-text">Ma réunion</div>
+            <div class="room-timer" id="room-timer">00:00</div>
+          </div>
+        </div>
+
+        <div class="room-share">
+          <span class="share-code" id="share-code-text"></span>
+          <button class="btn-copy" id="btn-copy" onclick="copyMeetingLink()">
+            <svg viewBox="0 0 18 18" fill="none">
+              <rect x="6" y="6" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M3 12V3h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            Copier le lien
+          </button>
+        </div>
+      </header>
+
+      <!-- Video Grid -->
+      <div class="video-area" id="video-area">
+        <!-- Local tile -->
+        <div class="vtile local" id="tile-local">
+          <video id="local-video" autoplay muted playsinline></video>
+          <div class="tile-cam-off" id="local-cam-off">
+            <div class="tile-avatar" id="local-avatar">V</div>
+          </div>
+          <div class="tile-info">
+            <div class="tile-name" id="local-name">Vous</div>
+            <div class="tile-indicators" id="local-indicators"></div>
+          </div>
+          <span class="you-badge">Vous</span>
+        </div>
+        <!-- Remote tiles injected by JS -->
+      </div>
+
+      <!-- No remote peers message -->
+      <div class="waiting-msg" id="waiting-msg">
+        <div class="waiting-icon">
+          <svg viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="19" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <path d="M13 20h14M20 13v14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p>En attente de participants…</p>
+        <span>Partagez le lien pour inviter</span>
+      </div>
+
+      <!-- Controls Bar -->
+      <div class="controls-bar">
+        <div class="controls-group">
+          <button class="ctrl-btn" id="room-mic-btn" onclick="toggleRoomMic()" title="Micro">
+            <svg id="room-mic-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+            <span>Micro</span>
+          </button>
+
+          <button class="ctrl-btn" id="room-cam-btn" onclick="toggleRoomCam()" title="Caméra">
+            <svg id="room-cam-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+            </svg>
+            <span>Caméra</span>
+          </button>
+
+          <button class="ctrl-btn" id="room-screen-btn" onclick="toggleScreenShare()" title="Partager l'écran">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 16V6h16v10H4z"/>
+            </svg>
+            <span>Écran</span>
+          </button>
+
+          <button class="ctrl-btn" id="room-chat-btn" onclick="toggleChat()" title="Chat">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+            </svg>
+            <span>Chat</span>
+          </button>
+        </div>
+
+        <button class="btn-leave" onclick="leaveRoom()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+          </svg>
+          Quitter
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chat-panel">
+      <div class="chat-header">
+        <span>Messages</span>
+        <button onclick="toggleChat()">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input id="chat-input" type="text" placeholder="Message…" onkeydown="if(event.key==='Enter')sendChat()" />
+        <button onclick="sendChat()">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 10l16-8-6 8 6 8-16-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
