@@ -1100,9 +1100,13 @@ html, body {
     grid-template-columns: 260px 1fr 260px !important;
     align-items: center;
     gap: 28px !important;
+    padding: 0 32px !important;
+    overflow: hidden;
   }
   .home-content {
-    padding-left: 60px;
+    min-width: 0;
+    padding-left: 20px;
+    padding-right: 20px;
   }
 }
 
