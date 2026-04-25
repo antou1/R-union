@@ -469,13 +469,42 @@ function bindCallEvents(call, peerId) {
   call.on('stream', remoteStream => {
     peers[peerId].stream = remoteStream;
     const p = peers[peerId];
+
+    // ── Vidéo dans la tile ──
     let tile = document.getElementById('tile-' + peerId);
     if (!tile) tile = createRemoteTile(peerId, p.name || '…', p.photo, p.color);
     const video = tile.querySelector('video');
-    if (video.srcObject !== remoteStream) video.srcObject = remoteStream;
+    if (video.srcObject !== remoteStream) {
+      video.srcObject = remoteStream;
+      video.play().catch(() => {});
+    }
+
+    // ── Audio dédié (hors tile) pour éviter les conflits WebRTC à 3+ ──
+    // On crée un élément <audio> invisible par pair pour l'audio distant
+    let audioEl = document.getElementById('audio-' + peerId);
+    if (!audioEl) {
+      audioEl = document.createElement('audio');
+      audioEl.id = 'audio-' + peerId;
+      audioEl.autoplay = true;
+      audioEl.playsInline = true;
+      // Muted=false explicitement (certains navigateurs mettent muted par défaut)
+      audioEl.muted = false;
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
+    }
+    // Créer un stream audio uniquement pour l'élément audio dédié
+    const audioTracks = remoteStream.getAudioTracks();
+    if (audioTracks.length > 0) {
+      const audioOnlyStream = new MediaStream(audioTracks);
+      audioEl.srcObject = audioOnlyStream;
+      audioEl.play().catch(e => console.warn('Audio play failed:', e));
+    }
+
+    // Mettre video en muted pour éviter le double son (audio géré par audioEl)
+    video.muted = true;
+
     updateGridLayout();
     updateWaiting();
-    // Appliquer avatar si on a déjà reçu le profil
     if (p.name) applyRemoteAvatar(peerId, p.name, p.photo, p.color);
   });
   call.on('close', () => removePeer(peerId));
@@ -525,6 +554,12 @@ function removePeer(peerId) {
   try { peers[peerId].call?.close(); } catch(_) {}
   delete peers[peerId];
   document.getElementById('tile-' + peerId)?.remove();
+  // Nettoyer l'élément audio dédié
+  const audioEl = document.getElementById('audio-' + peerId);
+  if (audioEl) {
+    audioEl.srcObject = null;
+    audioEl.remove();
+  }
   updateGridLayout();
   updateWaiting();
 }
@@ -611,6 +646,11 @@ function leaveRoom() {
   screenStream?.getTracks().forEach(t => t.stop());
   localStream = null; screenStream = null; screenSharing = false;
   document.querySelectorAll('.vtile.remote').forEach(el => el.remove());
+  // Supprimer tous les éléments audio dédiés
+  document.querySelectorAll('audio[id^="audio-"]').forEach(el => {
+    el.srcObject = null;
+    el.remove();
+  });
   clearInterval(timerInterval);
   updateGridLayout(); updateWaiting();
   showPage('page-home');
