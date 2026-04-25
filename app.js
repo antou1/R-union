@@ -1,6 +1,8 @@
 /* ============================================================
-   MeetNow — app.js
-   PeerJS signalling + localStorage profile (nom + photo)
+   MeetNow — app.js  v3
+   Fix: chat broadcast + noms corrects pour tous les participants
+   Stratégie: chaque peer envoie son profil complet dès que la
+   DataConnection est ouverte, dans les deux sens.
    ============================================================ */
 
 // ─── State ────────────────────────────────────────────────────
@@ -14,31 +16,32 @@ let setupMode     = 'create';
 let meetingCode   = '';
 let meetingTitle  = '';
 let userName      = '';
-let userPhoto     = null;   // base64 ou null
+let userPhoto     = null;
 let userColor     = '#2563eb';
 let timerInterval = null;
 let timerSeconds  = 0;
 
 let myPeer = null;
+
+// peers[peerId] = { call, data, name, color, photo, stream }
 const peers = {};
 
-// ─── LocalStorage profile ─────────────────────────────────────
+// ─── LocalStorage ─────────────────────────────────────────────
 const PROFILE_KEY = 'meetnow_profile';
 
 function saveProfile() {
-  const profile = { name: userName, color: userColor, photo: userPhoto };
-  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch(e) {}
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify({
+      name: userName, color: userColor, photo: userPhoto
+    }));
+  } catch(e) {}
 }
 
 function loadProfile() {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch(e) { return null; }
+  try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch(e) { return null; }
 }
 
-// ─── Page helpers ─────────────────────────────────────────────
+// ─── Pages ────────────────────────────────────────────────────
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => {
     p.classList.remove('active');
@@ -63,21 +66,11 @@ function openSetup(mode) {
   document.getElementById('meeting-name-field').style.display =
     mode === 'create' ? 'flex' : 'none';
 
-  // Pré-remplir depuis localStorage
   const profile = loadProfile();
   if (profile) {
-    if (profile.name) {
-      document.getElementById('user-name').value = profile.name;
-      userName = profile.name;
-    }
-    if (profile.color) {
-      userColor = profile.color;
-      applyColorSelection(profile.color);
-    }
-    if (profile.photo) {
-      userPhoto = profile.photo;
-      applyPhotoToSetup(profile.photo);
-    }
+    if (profile.name)  { document.getElementById('user-name').value = profile.name; userName = profile.name; }
+    if (profile.color) { userColor = profile.color; applyColorSelection(profile.color); }
+    if (profile.photo) { userPhoto = profile.photo; applyPhotoToSetup(profile.photo); }
   }
 
   updateSetupAvatar();
@@ -97,13 +90,12 @@ function handleJoin() {
   openSetup('join');
 }
 
-// ─── Photo upload ─────────────────────────────────────────────
+// ─── Photo / couleur ──────────────────────────────────────────
 function handlePhotoUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    // Redimensionner via canvas pour ne pas surcharger le DataChannel
     const img = new Image();
     img.onload = () => {
       const MAX = 120;
@@ -111,29 +103,23 @@ function handlePhotoUpload(event) {
       const ratio  = Math.min(MAX / img.width, MAX / img.height);
       canvas.width  = img.width  * ratio;
       canvas.height = img.height * ratio;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       userPhoto = canvas.toDataURL('image/jpeg', 0.75);
       applyPhotoToSetup(userPhoto);
-      // Désélectionner les couleurs
       document.querySelectorAll('.color-opt').forEach(el => el.classList.remove('selected'));
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-  // Reset input pour permettre re-sélection du même fichier
   event.target.value = '';
 }
 
 function applyPhotoToSetup(photoData) {
-  // Aperçu dans la boîte caméra
   const img    = document.getElementById('setup-avatar-img');
   const avatar = document.getElementById('setup-avatar');
   img.src = photoData;
   img.classList.remove('hidden');
   avatar.style.display = 'none';
-
-  // Miniature dans picker
   const thumb = document.getElementById('photo-thumb');
   const plus  = document.getElementById('photo-plus');
   const opt   = document.getElementById('photo-preview-opt');
@@ -148,10 +134,8 @@ function clearPhoto() {
   userPhoto = null;
   const img    = document.getElementById('setup-avatar-img');
   const avatar = document.getElementById('setup-avatar');
-  img.classList.add('hidden');
-  img.src = '';
+  img.classList.add('hidden'); img.src = '';
   avatar.style.display = '';
-
   const thumb = document.getElementById('photo-thumb');
   const plus  = document.getElementById('photo-plus');
   const opt   = document.getElementById('photo-preview-opt');
@@ -160,12 +144,10 @@ function clearPhoto() {
   opt.classList.remove('has-photo', 'selected');
 }
 
-// ─── Color picker ─────────────────────────────────────────────
 function pickColor(el) {
   clearPhoto();
   userColor = el.dataset.color;
   applyColorSelection(userColor);
-  // Mettre à jour l'avatar
   document.getElementById('setup-avatar').style.background = userColor;
 }
 
@@ -176,14 +158,13 @@ function applyColorSelection(color) {
   document.getElementById('setup-avatar').style.background = color;
 }
 
-// ─── Setup / Preview ──────────────────────────────────────────
+// ─── Setup Preview ────────────────────────────────────────────
 async function startPreview() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     document.getElementById('local-preview').srcObject = localStream;
     document.getElementById('cam-off-state').classList.add('hidden');
   } catch (e) {
-    console.warn('Caméra/micro indisponible:', e);
     document.getElementById('cam-off-state').classList.remove('hidden');
     localStream = new MediaStream();
   }
@@ -192,14 +173,12 @@ async function startPreview() {
 function updateSetupAvatar() {
   const name = document.getElementById('user-name').value.trim() || 'V';
   document.getElementById('setup-avatar').textContent = toInitials(name);
-  if (!userPhoto) {
-    document.getElementById('setup-avatar').style.background = userColor;
-  }
+  if (!userPhoto) document.getElementById('setup-avatar').style.background = userColor;
 }
+
 document.getElementById('user-name').addEventListener('input', () => {
-  updateSetupAvatar();
-  // Sauvegarder le nom en live pour l'auto-remplissage
   userName = document.getElementById('user-name').value.trim();
+  updateSetupAvatar();
 });
 
 let previewMicOn = true, previewCamOn = true;
@@ -225,14 +204,12 @@ async function confirmSetup() {
 
   if (setupMode === 'create') meetingCode = generateCode();
 
-  // Sauvegarder le profil
   saveProfile();
 
   if (!localStream || localStream.getTracks().length === 0) {
     try { localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
     catch (e) { localStream = new MediaStream(); }
   }
-
   localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
   localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
 
@@ -244,12 +221,13 @@ async function confirmSetup() {
 function enterRoom() {
   document.getElementById('room-title-text').textContent = meetingTitle;
   document.getElementById('share-code-text').textContent = buildShareUrl();
-
   document.getElementById('local-video').srcObject = localStream;
   document.getElementById('local-cam-off').classList.toggle('hidden', camEnabled);
-
-  // Avatar local : photo ou initiales
-  applyAvatarToTile('local-avatar', 'local-cam-off', userName, userPhoto, userColor);
+  applyAvatarToElement(
+    document.getElementById('local-avatar'),
+    document.getElementById('local-cam-off'),
+    userName, userPhoto, userColor
+  );
   document.getElementById('local-name').textContent = userName;
 
   updateControlUI();
@@ -263,24 +241,17 @@ function enterRoom() {
   showPage('page-room');
 }
 
-// ─── Appliquer avatar (photo ou couleur+initiales) à une tile ─
-function applyAvatarToTile(avatarId, camOffId, name, photo, color) {
-  const camOff = document.getElementById(camOffId);
-  if (!camOff) return;
-
-  // Supprimer ancienne image si présente
-  camOff.querySelectorAll('.local-avatar-img, .tile-avatar-img').forEach(el => el.remove());
-
-  const avatarEl = document.getElementById(avatarId) || camOff.querySelector('.tile-avatar');
-  if (!avatarEl) return;
-
+// ─── Avatar helpers ───────────────────────────────────────────
+function applyAvatarToElement(avatarEl, camOffEl, name, photo, color) {
+  if (!avatarEl || !camOffEl) return;
+  camOffEl.querySelectorAll('.local-avatar-img, .tile-avatar-img').forEach(el => el.remove());
   if (photo) {
+    avatarEl.style.display = 'none';
     const img = document.createElement('img');
     img.src = photo;
-    img.className = avatarId === 'local-avatar' ? 'local-avatar-img' : 'tile-avatar-img';
+    img.className = (avatarEl.id === 'local-avatar') ? 'local-avatar-img' : 'tile-avatar-img';
     img.alt = name;
-    avatarEl.style.display = 'none';
-    camOff.appendChild(img);
+    camOffEl.appendChild(img);
   } else {
     avatarEl.style.display = '';
     avatarEl.textContent = toInitials(name);
@@ -289,20 +260,16 @@ function applyAvatarToTile(avatarId, camOffId, name, photo, color) {
 }
 
 function applyRemoteAvatar(peerId, name, photo, color) {
-  const tile = document.getElementById('tile-' + peerId);
+  const tile    = document.getElementById('tile-' + peerId);
   if (!tile) return;
   const camOff  = tile.querySelector('.tile-cam-off');
   const avatarEl = tile.querySelector('.tile-avatar');
   if (!camOff || !avatarEl) return;
-
   tile.querySelectorAll('.tile-avatar-img').forEach(el => el.remove());
-
   if (photo) {
-    const img = document.createElement('img');
-    img.src = photo;
-    img.className = 'tile-avatar-img';
-    img.alt = name;
     avatarEl.style.display = 'none';
+    const img = document.createElement('img');
+    img.src = photo; img.className = 'tile-avatar-img'; img.alt = name;
     camOff.appendChild(img);
   } else {
     avatarEl.style.display = '';
@@ -315,136 +282,122 @@ function applyRemoteAvatar(peerId, name, photo, color) {
 function hostPeerId() { return 'mn-' + meetingCode + '-h'; }
 function isHost()     { return setupMode === 'create'; }
 
+// Mon profil complet à envoyer à chaque pair
+function myProfile() {
+  return { name: userName, color: userColor, photo: userPhoto };
+}
+
 function initPeer() {
   const id = isHost() ? hostPeerId() : undefined;
   myPeer = new Peer(id, { debug: 0 });
 
   myPeer.on('open', peerId => {
-    console.log('PeerJS connecté:', peerId);
+    console.log('PeerJS ID:', peerId);
     if (!isHost()) {
-      connectData(hostPeerId());
-      callPeer(hostPeerId(), userName);
+      // Invité : ouvrir DataConn vers l'hôte en premier
+      openDataTo(hostPeerId());
     }
   });
 
-  myPeer.on('call', call => { call.answer(localStream); handleCall(call); });
-  myPeer.on('connection', conn => setupDataConn(conn));
+  // Recevoir un appel vidéo entrant
+  myPeer.on('call', call => {
+    call.answer(localStream);
+    handleIncomingCall(call);
+  });
+
+  // Recevoir une DataConnection entrante
+  myPeer.on('connection', conn => {
+    attachDataConn(conn);
+  });
 
   myPeer.on('error', err => {
-    console.error('PeerJS:', err.type, err);
+    console.error('PeerJS error:', err.type);
     if (err.type === 'unavailable-id') {
+      // L'ID hôte existe déjà → on rejoint comme invité
       setupMode = 'join';
       myPeer.destroy();
       myPeer = new Peer(undefined, { debug: 0 });
-      myPeer.on('open', () => { connectData(hostPeerId()); callPeer(hostPeerId(), userName); });
-      myPeer.on('call', call => { call.answer(localStream); handleCall(call); });
-      myPeer.on('connection', conn => setupDataConn(conn));
+      myPeer.on('open', () => openDataTo(hostPeerId()));
+      myPeer.on('call', call => { call.answer(localStream); handleIncomingCall(call); });
+      myPeer.on('connection', conn => attachDataConn(conn));
       myPeer.on('error', e => showToast('Erreur réseau : ' + e.type));
     } else if (err.type === 'peer-unavailable') {
       showToast('Hôte introuvable. Vérifiez le lien ou attendez.');
     } else {
-      showToast('Erreur réseau : ' + err.type);
+      showToast('Erreur : ' + err.type);
     }
   });
 }
 
-// ─── Appel vidéo ──────────────────────────────────────────────
-function callPeer(peerId, name) {
-  if (peers[peerId]?.call) return;
-  const call = myPeer.call(peerId, localStream, {
-    metadata: { name: userName, color: userColor, photo: userPhoto }
-  });
-  if (!call) return;
-  if (!peers[peerId]) peers[peerId] = {};
-  peers[peerId].name  = name || peerId;
-  peers[peerId].color = userColor;
-  handleCall(call);
-}
-
-function handleCall(call) {
-  const peerId = call.peer;
-  if (!peers[peerId]) peers[peerId] = {};
-  peers[peerId].call = call;
-  if (call.metadata?.name)  peers[peerId].name  = call.metadata.name;
-  if (call.metadata?.color) peers[peerId].color = call.metadata.color;
-  if (call.metadata?.photo) peers[peerId].photo = call.metadata.photo;
-
-  call.on('stream', remoteStream => {
-    peers[peerId].stream = remoteStream;
-    const p = peers[peerId];
-    let tile = document.getElementById('tile-' + peerId);
-    if (!tile) tile = createRemoteTile(peerId, p.name || 'Participant', p.photo, p.color);
-    const video = tile.querySelector('video');
-    if (video.srcObject !== remoteStream) video.srcObject = remoteStream;
-    updateGridLayout();
-    updateWaiting();
-  });
-
-  call.on('close', () => removePeer(peerId));
-  call.on('error', () => removePeer(peerId));
-}
-
 // ─── DataConnection ───────────────────────────────────────────
-function myProfilePayload() {
-  return { name: userName, color: userColor, photo: userPhoto };
-}
-
-function connectData(peerId) {
+// Ouvrir une DataConn VERS un pair (on est l'initiateur)
+function openDataTo(peerId) {
   if (peers[peerId]?.data?.open) return;
-  const conn = myPeer.connect(peerId, {
-    metadata: myProfilePayload(), reliable: true
-  });
   if (!peers[peerId]) peers[peerId] = {};
+
+  const conn = myPeer.connect(peerId, { reliable: true });
   peers[peerId].data = conn;
 
-  conn.on('open', () => { conn.send({ type: 'hello', ...myProfilePayload() }); });
-  conn.on('data',  d  => handleDataMsg(d, peerId));
-  conn.on('close', () => removePeer(peerId));
-  conn.on('error', e  => console.warn('DataConn error', e));
+  conn.on('open', () => {
+    console.log('DataConn ouverte vers', peerId);
+    // Envoyer notre profil complet immédiatement
+    conn.send({ type: 'hello', ...myProfile(), fromId: myPeer.id });
+  });
+
+  conn.on('data', msg => handleData(msg, peerId));
+  conn.on('close', () => { console.log('DataConn fermée:', peerId); removePeer(peerId); });
+  conn.on('error', e => console.warn('DataConn err:', e));
 }
 
-function setupDataConn(conn) {
+// Attacher une DataConn entrante (quelqu'un se connecte à nous)
+function attachDataConn(conn) {
   const peerId = conn.peer;
   if (!peers[peerId]) peers[peerId] = {};
   peers[peerId].data = conn;
-  if (conn.metadata?.name)  peers[peerId].name  = conn.metadata.name;
-  if (conn.metadata?.color) peers[peerId].color = conn.metadata.color;
-  if (conn.metadata?.photo) peers[peerId].photo = conn.metadata.photo;
 
   conn.on('open', () => {
-    // Envoyer roster
-    const roster = Object.entries(peers)
-      .filter(([id]) => id !== peerId)
-      .map(([id, p]) => ({ id, name: p.name || '?', color: p.color, photo: p.photo }));
-    conn.send({ type: 'roster', peers: roster, hostId: myPeer.id });
-    callPeer(peerId, peers[peerId].name);
+    console.log('DataConn entrante de', peerId);
+    // Envoyer notre profil immédiatement
+    conn.send({ type: 'hello', ...myProfile(), fromId: myPeer.id });
+
+    // Si on est l'hôte : envoyer le roster (liste des pairs existants)
+    if (isHost()) {
+      const roster = Object.entries(peers)
+        .filter(([id]) => id !== peerId && peers[id].name)
+        .map(([id, p]) => ({ id, name: p.name, color: p.color, photo: p.photo }));
+      conn.send({ type: 'roster', peers: roster, hostId: myPeer.id });
+    }
+
+    // Initier l'appel vidéo vers ce pair
+    callVideo(peerId);
   });
-  conn.on('data',  d => handleDataMsg(d, peerId));
+
+  conn.on('data', msg => handleData(msg, peerId));
   conn.on('close', () => removePeer(peerId));
-  conn.on('error', e => console.warn('DataConn error', e));
+  conn.on('error', e => console.warn('DataConn err:', e));
 }
 
-function handleDataMsg(msg, fromId) {
+// ─── Messages DataChannel ─────────────────────────────────────
+function handleData(msg, fromId) {
   switch (msg.type) {
+
     case 'hello':
+      // Le pair nous envoie son profil → on le mémorise et on met à jour sa tile
       if (!peers[fromId]) peers[fromId] = {};
       peers[fromId].name  = msg.name;
       peers[fromId].color = msg.color;
       peers[fromId].photo = msg.photo;
-      // Mettre à jour la tile si elle existe
-      const tile = document.getElementById('tile-' + fromId);
-      if (tile) {
-        tile.querySelector('.tile-name').textContent = escapeHTML(msg.name);
-        applyRemoteAvatar(fromId, msg.name, msg.photo, msg.color);
-      }
+      console.log('Profil reçu de', fromId, ':', msg.name);
+      updateTileName(fromId, msg.name, msg.photo, msg.color);
       break;
 
     case 'roster':
+      // L'hôte nous envoie la liste des autres pairs → on s'y connecte
+      console.log('Roster reçu:', msg.peers.map(p => p.name));
       msg.peers.forEach(({ id, name, color, photo }) => {
         if (id === myPeer.id) return;
         if (!peers[id]) peers[id] = { name, color, photo };
-        connectData(id);
-        callPeer(id, name);
+        openDataTo(id);   // DataConn → on recevra leur 'hello' en retour
       });
       break;
 
@@ -462,47 +415,78 @@ function handleDataMsg(msg, fromId) {
   }
 }
 
-function broadcastData(msg) {
-  Object.values(peers).forEach(({ data }) => {
-    try { if (data && data.open) data.send(msg); } catch(_) {}
+// Envoyer un message à TOUS les pairs connectés
+function broadcast(msg) {
+  let sent = 0;
+  Object.entries(peers).forEach(([id, peer]) => {
+    if (peer.data && peer.data.open) {
+      try { peer.data.send(msg); sent++; }
+      catch(e) { console.warn('Broadcast fail to', id, e); }
+    }
   });
+  console.log('Broadcast envoyé à', sent, 'pairs');
 }
 
-// ─── Peer management ──────────────────────────────────────────
-function removePeer(peerId) {
-  if (!peers[peerId]) return;
-  try { peers[peerId].call?.close(); } catch(_) {}
-  delete peers[peerId];
-  document.getElementById('tile-' + peerId)?.remove();
-  updateGridLayout();
-  updateWaiting();
+// ─── Appel vidéo ──────────────────────────────────────────────
+function callVideo(peerId) {
+  if (peers[peerId]?.call) return;
+  console.log('Appel vidéo vers', peerId);
+  const call = myPeer.call(peerId, localStream);
+  if (!call) return;
+  if (!peers[peerId]) peers[peerId] = {};
+  peers[peerId].call = call;
+  bindCallEvents(call, peerId);
 }
 
-// ─── Remote Tile ──────────────────────────────────────────────
+function handleIncomingCall(call) {
+  const peerId = call.peer;
+  if (!peers[peerId]) peers[peerId] = {};
+  peers[peerId].call = call;
+  bindCallEvents(call, peerId);
+}
+
+function bindCallEvents(call, peerId) {
+  call.on('stream', remoteStream => {
+    peers[peerId].stream = remoteStream;
+    const p = peers[peerId];
+    let tile = document.getElementById('tile-' + peerId);
+    if (!tile) tile = createRemoteTile(peerId, p.name || '…', p.photo, p.color);
+    const video = tile.querySelector('video');
+    if (video.srcObject !== remoteStream) video.srcObject = remoteStream;
+    updateGridLayout();
+    updateWaiting();
+    // Appliquer avatar si on a déjà reçu le profil
+    if (p.name) applyRemoteAvatar(peerId, p.name, p.photo, p.color);
+  });
+  call.on('close', () => removePeer(peerId));
+  call.on('error', () => removePeer(peerId));
+}
+
+// ─── Tile distante ────────────────────────────────────────────
 function createRemoteTile(peerId, peerName, photo, color) {
   const div = document.createElement('div');
   div.className = 'vtile remote';
   div.id = 'tile-' + peerId;
-
-  const avatarBg    = color || '#2563eb';
-  const avatarInits = toInitials(peerName);
-
   div.innerHTML = `
     <video autoplay playsinline></video>
     <div class="tile-cam-off">
-      <div class="tile-avatar" style="background:${avatarBg}">${avatarInits}</div>
+      <div class="tile-avatar" style="background:${color || '#2563eb'}">${toInitials(peerName)}</div>
     </div>
     <div class="tile-info">
       <div class="tile-name">${escapeHTML(peerName)}</div>
       <div class="tile-indicators"></div>
-    </div>
-  `;
+    </div>`;
   document.getElementById('video-area').appendChild(div);
-
-  // Appliquer photo si fournie
   if (photo) applyRemoteAvatar(peerId, peerName, photo, color);
-
   return div;
+}
+
+function updateTileName(peerId, name, photo, color) {
+  const tile = document.getElementById('tile-' + peerId);
+  if (tile) {
+    tile.querySelector('.tile-name').textContent = escapeHTML(name);
+    applyRemoteAvatar(peerId, name, photo, color);
+  }
 }
 
 function updatePeerMeta(peerId, msg) {
@@ -516,7 +500,16 @@ function updatePeerMeta(peerId, msg) {
   }
 }
 
-// ─── Grid Layout ──────────────────────────────────────────────
+function removePeer(peerId) {
+  if (!peers[peerId]) return;
+  try { peers[peerId].call?.close(); } catch(_) {}
+  delete peers[peerId];
+  document.getElementById('tile-' + peerId)?.remove();
+  updateGridLayout();
+  updateWaiting();
+}
+
+// ─── Grid ─────────────────────────────────────────────────────
 function updateGridLayout() {
   const area  = document.getElementById('video-area');
   const count = area.querySelectorAll('.vtile').length;
@@ -533,7 +526,7 @@ function toggleRoomMic() {
   micEnabled = !micEnabled;
   localStream?.getAudioTracks().forEach(t => t.enabled = micEnabled);
   updateControlUI();
-  broadcastData({ type: 'meta', micOn: micEnabled, camOn: camEnabled });
+  broadcast({ type: 'meta', micOn: micEnabled, camOn: camEnabled });
 }
 
 function toggleRoomCam() {
@@ -541,7 +534,7 @@ function toggleRoomCam() {
   localStream?.getVideoTracks().forEach(t => t.enabled = camEnabled);
   document.getElementById('local-cam-off').classList.toggle('hidden', camEnabled);
   updateControlUI();
-  broadcastData({ type: 'meta', micOn: micEnabled, camOn: camEnabled });
+  broadcast({ type: 'meta', micOn: micEnabled, camOn: camEnabled });
 }
 
 async function toggleScreenShare() {
@@ -550,8 +543,7 @@ async function toggleScreenShare() {
       screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       const screenTrack = screenStream.getVideoTracks()[0];
       Object.values(peers).forEach(({ call }) => {
-        if (!call) return;
-        const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === 'video');
+        const sender = call?.peerConnection?.getSenders().find(s => s.track?.kind === 'video');
         if (sender) sender.replaceTrack(screenTrack);
       });
       document.getElementById('local-video').srcObject = screenStream;
@@ -569,8 +561,7 @@ function stopScreenShare() {
   const camTrack = localStream?.getVideoTracks()[0];
   if (camTrack) {
     Object.values(peers).forEach(({ call }) => {
-      if (!call) return;
-      const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === 'video');
+      const sender = call?.peerConnection?.getSenders().find(s => s.track?.kind === 'video');
       if (sender) sender.replaceTrack(camTrack);
     });
   }
@@ -592,7 +583,7 @@ function micOffHTML() {
 
 // ─── Leave ────────────────────────────────────────────────────
 function leaveRoom() {
-  broadcastData({ type: 'leave' });
+  broadcast({ type: 'leave' });
   Object.keys(peers).forEach(id => removePeer(id));
   myPeer?.destroy(); myPeer = null;
   localStream?.getTracks().forEach(t => t.stop());
@@ -616,8 +607,9 @@ function sendChat() {
   const text  = input.value.trim();
   if (!text) return;
   input.value = '';
-  appendChatMessage({ name: userName, text, photo: userPhoto, color: userColor, mine: true });
-  broadcastData({ type: 'chat', name: userName, text, photo: userPhoto, color: userColor });
+  const msg = { type: 'chat', name: userName, text, photo: userPhoto, color: userColor };
+  appendChatMessage({ ...msg, mine: true });
+  broadcast(msg);
 }
 
 function appendChatMessage({ name, text, photo, color, mine }) {
@@ -625,11 +617,9 @@ function appendChatMessage({ name, text, photo, color, mine }) {
   const now  = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const div  = document.createElement('div');
   div.className = 'chat-msg' + (mine ? ' mine' : '');
-
   const avatarHTML = photo
     ? `<img src="${photo}" class="chat-avatar-img" alt="${escapeHTML(name)}" />`
     : `<div class="chat-avatar" style="background:${color || '#2563eb'}">${toInitials(name)}</div>`;
-
   div.innerHTML = `
     <div class="chat-msg-row">
       ${avatarHTML}
@@ -637,8 +627,7 @@ function appendChatMessage({ name, text, photo, color, mine }) {
         <div class="msg-meta"><strong>${escapeHTML(name)}</strong><span>${now}</span></div>
         <div class="msg-body">${escapeHTML(text)}</div>
       </div>
-    </div>
-  `;
+    </div>`;
   list.appendChild(div);
   list.scrollTop = list.scrollHeight;
   if (!chatOpen) {
