@@ -72,7 +72,29 @@
         </div>
       </aside>
 
-      <!-- ===== PANNEAU PRIÈRE DROITE ===== -->
+
+      <div class="home-content">
+        <div class="badge">Visioconférence WebRTC</div>
+        <h1 class="home-title">Réunions vidéo<br><em>sans friction</em></h1>
+        <p class="home-sub">Créez une réunion en un clic, partagez le lien.<br>Aucune installation, aucun compte requis.</p>
+
+        <div class="action-stack">
+          <button class="btn-primary" onclick="openSetup('create')">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Nouvelle réunion
+          </button>
+
+          <div class="divider"><span>ou</span></div>
+
+          <div class="join-box">
+            <input id="join-input" type="text" placeholder="Entrez un code ou collez un lien…" class="join-input" />
+            <button class="btn-join" onclick="handleJoin()">Rejoindre</button>
+          </div>
+        </div>
+      </div>
+
       <aside class="prayer-panel prayer-panel-right">
         <div class="prayer-header">
           <span class="prayer-arabic">يَا رَبِّ</span>
@@ -108,57 +130,6 @@
           <span class="prayer-amin">آمِيـن &nbsp; Aamin...</span>
         </div>
       </aside>
-
-      <div class="home-content">
-        <div class="badge">Visioconférence WebRTC</div>
-        <h1 class="home-title">Réunions vidéo<br><em>sans friction</em></h1>
-        <p class="home-sub">Créez une réunion en un clic, partagez le lien.<br>Aucune installation, aucun compte requis.</p>
-
-        <div class="action-stack">
-          <button class="btn-primary" onclick="openSetup('create')">
-            <svg viewBox="0 0 20 20" fill="none">
-              <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            Nouvelle réunion
-          </button>
-
-          <div class="divider"><span>ou</span></div>
-
-          <div class="join-box">
-            <input id="join-input" type="text" placeholder="Entrez un code ou collez un lien…" class="join-input" />
-            <button class="btn-join" onclick="handleJoin()">Rejoindre</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="home-visual">
-        <div class="preview-grid">
-          <div class="preview-tile active">
-            <div class="p-avatar blue">SL</div>
-            <div class="p-name">Sophie L.</div>
-            <div class="p-speaking"></div>
-          </div>
-          <div class="preview-tile">
-            <div class="p-avatar green">MR</div>
-            <div class="p-name">Marc R.</div>
-          </div>
-          <div class="preview-tile">
-            <div class="p-avatar purple">AN</div>
-            <div class="p-name">Amira N.</div>
-          </div>
-          <div class="preview-tile you">
-            <div class="p-avatar dark">Vous</div>
-            <div class="p-name">Vous</div>
-            <span class="you-tag">Vous</span>
-          </div>
-        </div>
-        <div class="preview-bar">
-          <div class="pb-dot mic"></div>
-          <div class="pb-dot cam"></div>
-          <div class="pb-dot share"></div>
-          <div class="pb-dot red"></div>
-        </div>
-      </div>
     </main>
   </div>
 
