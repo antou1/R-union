@@ -89,13 +89,16 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 80px;
-  padding: 0 60px;
+  gap: 40px;
+  padding: 0 40px;
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
 }
 
-.home-content { flex: 1; max-width: 480px; }
+.home-content { flex: 1; min-width: 0; max-width: 480px; box-sizing: border-box; }
 
 .badge {
   display: inline-flex;
@@ -1095,18 +1098,29 @@ html, body {
 
 /* Layout 3 colonnes sur grand écran */
 @media (min-width: 1200px) {
-  .home-main {
+  #page-home .home-main {
     display: grid !important;
-    grid-template-columns: 260px 1fr 260px !important;
-    align-items: center;
-    gap: 28px !important;
-    padding: 0 32px !important;
-    overflow: hidden;
+    grid-template-columns: 260px minmax(0, 1fr) 260px !important;
+    align-items: start !important;
+    gap: 20px !important;
+    padding: 0 24px !important;
+    overflow: visible;
+    width: 100%;
+    box-sizing: border-box;
   }
-  .home-content {
+  #page-home .home-content {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  #page-home .prayer-panel,
+  #page-home .prayer-panel-right {
     min-width: 0;
-    padding-left: 20px;
-    padding-right: 20px;
+    width: 260px;
+    max-width: 260px;
   }
 }
 
