@@ -1042,3 +1042,72 @@ html, body {
 @media (max-width: 1100px) {
   .prayer-panel { display: none; }
 }
+
+/* ===== DEUXIÈME PANNEAU PRIÈRE (droite) ===== */
+.prayer-panel-right {
+  background: linear-gradient(160deg, rgba(37,99,235,0.12) 0%, rgba(124,58,237,0.06) 100%);
+  border-color: rgba(37,99,235,0.2);
+}
+
+.prayer-panel-right .prayer-title { color: #60a5fa; }
+.prayer-panel-right .prayer-arabic { color: #a78bfa; }
+.prayer-panel-right .prayer-amin  { color: #a78bfa; font-size: 22px; }
+
+.prayer-panel-right .prayer-footer {
+  border-top-color: rgba(37,99,235,0.2);
+}
+.prayer-panel-right .prayer-header {
+  border-bottom-color: rgba(37,99,235,0.2);
+}
+
+.prayer-list-free {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(96,165,250,0.3) transparent;
+}
+.prayer-list-free::-webkit-scrollbar { width: 4px; }
+.prayer-list-free::-webkit-scrollbar-thumb {
+  background: rgba(96,165,250,0.3);
+  border-radius: 4px;
+}
+
+.prayer-list-free p {
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: rgba(240,240,245,0.82);
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  margin: 0;
+}
+.prayer-list-free p:last-child { border-bottom: none; }
+
+.prayer-closing {
+  font-style: italic;
+  color: rgba(240,240,245,0.65) !important;
+  font-size: 11px !important;
+  padding-top: 10px !important;
+}
+
+/* Layout 3 colonnes sur grand écran */
+@media (min-width: 1300px) {
+  .home-main {
+    display: grid !important;
+    grid-template-columns: 280px 1fr 280px !important;
+    align-items: center;
+    gap: 32px !important;
+  }
+  .home-visual { display: none; } /* masquer la preview centrale pour garder la place */
+}
+
+@media (max-width: 1299px) and (min-width: 1101px) {
+  .prayer-panel-right { display: none; }
+}
+
+@media (max-width: 1100px) {
+  .prayer-panel, .prayer-panel-right { display: none; }
+}
