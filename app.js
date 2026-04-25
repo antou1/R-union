@@ -289,7 +289,17 @@ function myProfile() {
 
 function initPeer() {
   const id = isHost() ? hostPeerId() : undefined;
-  myPeer = new Peer(id, { debug: 0 });
+  myPeer = new Peer(id, {
+    debug: 0,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ]
+    }
+  });
 
   myPeer.on('open', peerId => {
     console.log('PeerJS ID:', peerId);
@@ -316,7 +326,17 @@ function initPeer() {
       // L'ID hôte existe déjà → on rejoint comme invité
       setupMode = 'join';
       myPeer.destroy();
-      myPeer = new Peer(undefined, { debug: 0 });
+      myPeer = new Peer(undefined, {
+        debug: 0,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+        }
+      });
       myPeer.on('open', () => openDataTo(hostPeerId()));
       myPeer.on('call', call => { call.answer(localStream); handleIncomingCall(call); });
       myPeer.on('connection', conn => attachDataConn(conn));
@@ -513,7 +533,8 @@ function removePeer(peerId) {
 function updateGridLayout() {
   const area  = document.getElementById('video-area');
   const count = area.querySelectorAll('.vtile').length;
-  area.className = 'video-area count-' + Math.max(1, count);
+  const n = Math.max(1, count);
+  area.className = n <= 12 ? 'video-area count-' + n : 'video-area count-many';
 }
 
 function updateWaiting() {

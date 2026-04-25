@@ -503,11 +503,20 @@ html, body {
   overflow: hidden;
 }
 
-.video-area.count-1 { grid-template-columns: 1fr; }
-.video-area.count-2 { grid-template-columns: 1fr 1fr; }
-.video-area.count-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.video-area.count-3 .vtile:first-child { grid-column: 1 / -1; }
-.video-area.count-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.video-area.count-1  { grid-template-columns: 1fr; }
+.video-area.count-2  { grid-template-columns: 1fr 1fr; }
+.video-area.count-3  { grid-template-columns: 1fr 1fr; }
+.video-area.count-4  { grid-template-columns: 1fr 1fr; }
+.video-area.count-5,
+.video-area.count-6  { grid-template-columns: repeat(3, 1fr); }
+.video-area.count-7,
+.video-area.count-8,
+.video-area.count-9  { grid-template-columns: repeat(3, 1fr); }
+.video-area.count-10,
+.video-area.count-11,
+.video-area.count-12 { grid-template-columns: repeat(4, 1fr); }
+/* 13+ : auto-fill adaptatif */
+.video-area.count-many { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 
 .vtile {
   border-radius: 14px;
