@@ -1101,6 +1101,9 @@ html, body {
     align-items: center;
     gap: 28px !important;
   }
+  .home-content {
+    padding-left: 60px;
+  }
 }
 
 @media (max-width: 1199px) and (min-width: 900px) {
